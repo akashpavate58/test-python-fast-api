@@ -26,6 +26,20 @@ async def test_openapi_document_is_available():
 
 
 @pytest.mark.asyncio
+async def test_openapi_schema_includes_versioned_routes():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json().get("paths", {})
+    assert "/api/v1/hello" in paths
+    assert "/api/v1/health/live" in paths
+    assert "/api/v1/health/ready" in paths
+
+
+@pytest.mark.asyncio
 async def test_api_v1_router_prefix_exists():
     async with LifespanManager(app):
         transport = ASGITransport(app=app)

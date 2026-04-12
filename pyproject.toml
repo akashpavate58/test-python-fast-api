@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=67.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "test-python-fast-api"
+version = "0.1.0"
+description = "Production-oriented FastAPI service skeleton."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.111.0",
+  "uvicorn[standard]>=0.23.0",
+  "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.22",
+  "ruff>=0.0.291",
+  "black>=24.1.0",
+  "mypy>=1.8.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = ["py311"]
+exclude = ["build", "dist", "tests/__init__.py", ".venv", "venv"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+files = ["src", "tests"]

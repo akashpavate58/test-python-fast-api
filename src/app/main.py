@@ -1,14 +1,17 @@
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
 from app.core.exceptions import AppError
-from app.core.logging import init_logging
+from app.core.logging import init_logging, request_id_ctx_var
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -30,10 +33,21 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        request.state.request_id = request_id
+        request_id_ctx_var.set(request_id)
+
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    init_logging()
     settings = get_settings()
+    init_logging(settings.log_level)
     logger = logging.getLogger("app.main")
     logger.info(
         "Starting application",
@@ -57,6 +71,17 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+
+    if settings.allowed_cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    app.add_middleware(RequestIDMiddleware)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     register_exception_handlers(app)
     return app

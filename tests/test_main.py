@@ -43,6 +43,35 @@ async def test_api_v1_router_prefix_exists():
 
 
 @pytest.mark.asyncio
+async def test_health_liveness_endpoint_returns_healthy():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/api/v1/health/live")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+
+@pytest.mark.asyncio
+async def test_health_readiness_endpoint_returns_dependency_placeholders():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/api/v1/health/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "dependencies": {
+            "azuresql": "not_configured",
+            "qdrant": "not_configured",
+            "external_api": "not_configured",
+        },
+    }
+
+
+@pytest.mark.asyncio
 async def test_plain_hello_route_is_not_available_without_version_prefix():
     async with LifespanManager(app):
         transport = ASGITransport(app=app)

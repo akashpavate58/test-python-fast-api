@@ -16,3 +16,18 @@ class ErrorResponse(BaseModel):
 
 class HelloResponse(SuccessResponse):
     pass
+
+
+class HealthLiveResponse(BaseModel):
+    status: str
+
+
+class HealthDependencyStatus(BaseModel):
+    azuresql: str
+    qdrant: str
+    external_api: str
+
+
+class HealthReadyResponse(BaseModel):
+    status: str
+    dependencies: HealthDependencyStatus

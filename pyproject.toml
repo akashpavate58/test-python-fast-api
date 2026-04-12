@@ -18,10 +18,19 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.22",
+  "httpx>=0.27",
+  "anyio>=3.7",
+  "asgi-lifespan>=1.0",
   "ruff>=0.0.291",
   "black>=24.1.0",
   "mypy>=1.8.0",
 ]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--strict-markers"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -34,10 +43,18 @@ line-length = 88
 
 [tool.ruff]
 line-length = 88
-target-version = ["py311"]
+target-version = "py311"
 exclude = ["build", "dist", "tests/__init__.py", ".venv", "venv"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
 
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
-files = ["src", "tests"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+files = ["src/app"]

@@ -9,7 +9,7 @@ Create and activate a virtual environment from the repository root:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+python -m pip install -e .[dev]
 ```
 
 ## Run
@@ -20,26 +20,53 @@ Start the application locally with Uvicorn:
 uvicorn app.main:app --reload
 ```
 
-## Lint
+## Quality commands
 
-Run Ruff and Black checks:
+1. Install dependencies
 
 ```bash
-ruff check src tests
+python -m pip install -e .[dev]
+```
+
+2. Run Ruff
+
+```bash
+ruff check .
+```
+
+3. Run mypy
+
+```bash
+mypy src
+```
+
+4. Run pytest
+
+```bash
+pytest
+```
+
+## Additional checks
+
+Run formatting verification with Black:
+
+```bash
 black --check src tests
 ```
 
-## Type check
-
-Run mypy against the package:
+Run linting and import ordering checks with Ruff:
 
 ```bash
-mypy src tests
+ruff check .
 ```
 
-## Test
+Run static type checking on application code in `src/app`:
 
-Run the test suite with pytest:
+```bash
+mypy src
+```
+
+Run the test suite:
 
 ```bash
 pytest

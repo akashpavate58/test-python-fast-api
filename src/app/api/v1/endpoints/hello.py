@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from ...models.responses import HelloResponse
+from app.models.responses import HelloResponse
 
 router = APIRouter()
 

@@ -14,10 +14,35 @@ python -m pip install -e .[dev]
 
 ## Run
 
-Start the application locally with Uvicorn:
+### Local development
+
+Start the application locally with Uvicorn and auto-reload for developer productivity:
 
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+> This is the preferred local workflow for fast feedback while editing the code.
+
+### Production-ready deployment guidance
+
+For production, use a worker-based server process manager such as Gunicorn with Uvicorn workers.
+A common deployment pattern is:
+
+```bash
+gunicorn app.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --log-level info
+```
+
+Do not use `--reload` in production. Tune the worker count for your environment; a common starting formula is `(2 x $CPU_CORES) + 1`, but the final value depends on deployment size, latency, concurrency, and memory limits.
+
+If you do not have Gunicorn installed in your production environment, install it separately:
+
+```bash
+python -m pip install gunicorn
 ```
 
 ## Quality commands

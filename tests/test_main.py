@@ -33,7 +33,12 @@ async def test_api_v1_router_prefix_exists():
             response = await client.get("/api/v1/hello")
 
     assert response.status_code == 200
-    assert response.json() == {"message": "Hello, world!"}
+    assert response.json() == {
+        "message": "Hello, world!",
+        "service_name": get_settings().app_name,
+        "environment": get_settings().environment,
+        "request_id": response.headers["x-request-id"],
+    }
 
 
 @pytest.mark.asyncio
@@ -49,7 +54,7 @@ async def test_hello_response_includes_request_id_header():
 
 
 @pytest.mark.asyncio
-async def test_unsupported_route_includes_request_id_header():
+async def test_unsupported_route_returns_standard_error_shape():
     async with LifespanManager(app):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -58,6 +63,46 @@ async def test_unsupported_route_includes_request_id_header():
     assert response.status_code == 404
     assert response.headers.get("x-request-id")
     assert response.headers["x-request-id"].strip() != ""
+
+    assert response.json() == {
+        "error_code": "not_found",
+        "message": "Resource not found.",
+        "request_id": response.headers["x-request-id"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_validation_error_returns_standard_error_shape():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/api/v1/test-validation", params={"count": "invalid"})
+
+    assert response.status_code == 422
+    assert response.headers.get("x-request-id")
+    assert response.json() == {
+        "error_code": "validation_error",
+        "message": "Invalid request.",
+        "request_id": response.headers["x-request-id"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_internal_exception_returns_safe_error_shape():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/api/v1/test-error")
+
+    assert response.status_code == 500
+    assert response.headers.get("x-request-id")
+    assert response.json() == {
+        "error_code": "internal_error",
+        "message": "Internal server error.",
+        "request_id": response.headers["x-request-id"],
+    }
+    assert "traceback" not in response.text.lower()
+    assert "simulated internal failure" not in response.text.lower()
 
 
 @pytest.mark.asyncio

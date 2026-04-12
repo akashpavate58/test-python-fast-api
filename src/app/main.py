@@ -4,32 +4,90 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logging import init_logging, request_id_ctx_var
+from app.models.responses import ErrorResponse
+
+
+def _get_request_id(request: Request) -> str:
+    return getattr(request.state, "request_id", request.headers.get("x-request-id") or str(uuid.uuid4()))
+
+
+def _build_error_payload(error_code: str, message: str, request_id: str) -> dict:
+    return ErrorResponse(error_code=error_code, message=message, request_id=request_id).model_dump()
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         logging.getLogger("app.main").exception("Application error")
-        return JSONResponse(
-            status_code=400,
-            content={"detail": str(exc) or "Application error."},
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content=_build_error_payload(
+                error_code=exc.error_code,
+                message=str(exc) or "Application error.",
+                request_id=_get_request_id(request),
+            ),
         )
+        response.headers["X-Request-ID"] = _get_request_id(request)
+        return response
 
-    def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
-        logging.getLogger("app.main").exception("Unexpected exception")
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error."},
+    def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        logging.getLogger("app.main").exception("Request validation error")
+        response = JSONResponse(
+            status_code=422,
+            content=_build_error_payload(
+                error_code="validation_error",
+                message="Invalid request.",
+                request_id=_get_request_id(request),
+            ),
         )
+        response.headers["X-Request-ID"] = _get_request_id(request)
+        return response
+
+    def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        logging.getLogger("app.main").warning("HTTP exception: %s", exc.detail)
+        if exc.status_code == 404:
+            error_code = "not_found"
+            message = "Resource not found."
+        else:
+            error_code = "http_error"
+            message = str(exc.detail) or "HTTP error."
+
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content=_build_error_payload(
+                error_code=error_code,
+                message=message,
+                request_id=_get_request_id(request),
+            ),
+        )
+        response.headers["X-Request-ID"] = _get_request_id(request)
+        return response
+
+    def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logging.getLogger("app.main").exception("Unexpected exception")
+        response = JSONResponse(
+            status_code=500,
+            content=_build_error_payload(
+                error_code="internal_error",
+                message="Internal server error.",
+                request_id=_get_request_id(request),
+            ),
+        )
+        response.headers["X-Request-ID"] = _get_request_id(request)
+        return response
 
     app.add_exception_handler(AppError, app_error_handler)
+    app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
 

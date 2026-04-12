@@ -26,4 +26,5 @@ src/test_python_fast_api.egg-info/SOURCES.txt
 src/test_python_fast_api.egg-info/dependency_links.txt
 src/test_python_fast_api.egg-info/requires.txt
 src/test_python_fast_api.egg-info/top_level.txt
+tests/test_config.py
 tests/test_test_harness.py

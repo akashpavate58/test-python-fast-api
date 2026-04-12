@@ -33,12 +33,23 @@ async def test_api_v1_router_prefix_exists():
             response = await client.get("/api/v1/hello")
 
     assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
     assert response.json() == {
-        "message": "Hello, world!",
+        "message": "Hello, World!",
         "service_name": get_settings().app_name,
         "environment": get_settings().environment,
         "request_id": response.headers["x-request-id"],
     }
+
+
+@pytest.mark.asyncio
+async def test_plain_hello_route_is_not_available_without_version_prefix():
+    async with LifespanManager(app):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/hello")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

@@ -12,6 +12,7 @@ class QueueMessageReceipt:
     message: IngestionQueueMessage
     raw_message: Any | None = None
     receiver: Any | None = None
+    delivery_count: int = 1
 
 
 class IngestionQueue(Protocol):
@@ -47,7 +48,11 @@ class InMemoryIngestionQueue:
             return None
 
         message = self.enqueued_messages.popleft()
-        receipt = QueueMessageReceipt(message=message)
+        delivery_count = 1
+        if isinstance(message.payload, dict):
+            delivery_count = int(message.payload.get("delivery_count", 1))
+
+        receipt = QueueMessageReceipt(message=message, delivery_count=delivery_count)
         self._pending_receipts.append(receipt)
         return receipt
 
@@ -58,6 +63,9 @@ class InMemoryIngestionQueue:
     def abandon_message(self, receipt: QueueMessageReceipt, reason: str | None = None) -> None:
         if receipt in self._pending_receipts:
             self._pending_receipts.remove(receipt)
+            receipt.delivery_count += 1
+            if isinstance(receipt.message.payload, dict):
+                receipt.message.payload["delivery_count"] = receipt.delivery_count
             self.enqueued_messages.append(receipt.message)
 
     def dead_letter_message(self, receipt: QueueMessageReceipt, reason: str | None = None) -> None:

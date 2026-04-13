@@ -20,6 +20,7 @@ ALLOWED_JOB_STATUS_TRANSITIONS: dict[IngestionStatus, set[IngestionStatus]] = {
         IngestionStatus.completed,
         IngestionStatus.failed,
         IngestionStatus.partially_completed,
+        IngestionStatus.queued,
     },
     IngestionStatus.completed: set(),
     IngestionStatus.failed: set(),

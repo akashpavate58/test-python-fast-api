@@ -44,6 +44,7 @@ class AppSettings(BaseSettings):
     worker_max_concurrent_jobs: int = 2
     worker_max_concurrent_page_fetches_per_job: int = 5
     worker_max_concurrent_embedding_batches: int = 2
+    worker_max_pending_chunk_volume_per_job: int = 20
     worker_shutdown_grace_seconds: int = 30
     worker_message_retry_limit: int = 5
 
@@ -97,6 +98,7 @@ class AppSettings(BaseSettings):
         "worker_max_concurrent_jobs",
         "worker_max_concurrent_page_fetches_per_job",
         "worker_max_concurrent_embedding_batches",
+        "worker_max_pending_chunk_volume_per_job",
         "worker_message_retry_limit",
         "ingestion_status_poll_retry_after_seconds",
         "embedding_request_timeout_seconds",

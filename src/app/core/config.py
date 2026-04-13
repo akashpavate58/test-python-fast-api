@@ -16,6 +16,7 @@ class AppSettings(BaseSettings):
     allowed_cors_origins: str | list[str] = []
 
     api_base_url: str = ""
+    job_status_database_url: str = "sqlite:///./job_status.db"
     ingestion_status_poll_retry_after_seconds: int = 5
     job_status_retention_days: int = 30
 

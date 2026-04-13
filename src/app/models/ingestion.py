@@ -45,6 +45,7 @@ class IngestionJobStatusResponse(BaseModel):
     vectors_stored: NonNegativeInt
     error_code: Optional[str] = None
     error_message: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class IngestionQueueMessage(BaseModel):
@@ -73,6 +74,7 @@ class IngestionJobRecord(BaseModel):
     vectors_stored: NonNegativeInt = 0
     error_code: Optional[str] = None
     error_message: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class CrawledPage(BaseModel):
@@ -147,3 +149,4 @@ class IngestionJobSummary(BaseModel):
     vectors_stored: NonNegativeInt = 0
     error_code: Optional[str] = None
     error_message: Optional[str] = None
+    summary: Optional[str] = None

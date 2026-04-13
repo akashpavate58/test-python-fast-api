@@ -140,4 +140,5 @@ def get_ingestion_status(
         vectors_stored=job_record.vectors_stored,
         error_code=job_record.error_code,
         error_message=job_record.error_message,
+        summary=job_record.summary,
     )

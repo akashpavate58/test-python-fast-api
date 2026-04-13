@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, NonNegativeInt
+from pydantic import AnyUrl, BaseModel, Field, HttpUrl, NonNegativeInt
 
 
 class IngestionStatus(str, Enum):
@@ -17,7 +17,7 @@ class IngestionStatus(str, Enum):
 
 
 class IngestionRequest(BaseModel):
-    url: HttpUrl
+    url: AnyUrl
 
 
 class IngestionAcceptedResponse(BaseModel):

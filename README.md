@@ -96,3 +96,11 @@ Run the test suite:
 ```bash
 pytest
 ```
+
+## Coding Standards and Copilot Instructions
+
+This repository stores human-readable standards in `docs/engineering-standards.md` and GitHub Copilot guidance in `.github/copilot-instructions.md`.
+
+Path-specific Copilot guidance is kept in `.github/instructions/python-backend.instructions.md` for backend source and `.github/instructions/tests.instructions.md` for tests.
+
+Keep these files up to date when repository conventions or architecture patterns change.

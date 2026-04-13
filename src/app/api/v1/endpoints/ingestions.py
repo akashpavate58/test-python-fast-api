@@ -70,9 +70,11 @@ def submit_ingestion(
     repository.create_job(job_record)
 
     queue_message = IngestionQueueMessage(
+        schema_version=1,
         job_id=job_id,
         submitted_url=ingestion_request.url,
         status_url=status_url,
+        correlation_id=job_id,
         created_at=job_record.created_at,
         payload={
             "submitted_url": str(ingestion_request.url),

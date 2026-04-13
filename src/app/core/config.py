@@ -48,6 +48,7 @@ class AppSettings(BaseSettings):
     worker_message_retry_limit: int = 5
 
     azure_blob_connection_string: str = ""
+    azure_service_bus_connection_string: str = ""
     blob_container_raw_pages: str = "raw-pages"
     blob_container_chunks: str = "chunks"
 

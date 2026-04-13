@@ -46,6 +46,8 @@ def test_default_settings_load_when_env_missing():
     assert settings.embedding_vector_size == 1536
     assert settings.worker_max_concurrent_jobs == 2
     assert settings.azure_blob_connection_string == ""
+    assert settings.azure_service_bus_connection_string == ""
+    assert settings.service_bus_queue_ingestion == "ingestion-queue"
     assert settings.qdrant_collection_name == "ingestion-docs"
     assert settings.qdrant_payload_store_mode == "structured"
     assert settings.external_api_timeout_seconds == 10

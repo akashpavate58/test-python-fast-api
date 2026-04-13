@@ -100,10 +100,11 @@ def test_internal_models_preserve_submitted_and_page_url_separation():
     )
 
     queue_message = IngestionQueueMessage(
-        version=1,
+        schema_version=1,
         job_id="job-789",
         submitted_url="https://example.com",
         status_url="https://api.example.com/status/job-789",
+        correlation_id="job-789",
         created_at=datetime.now(timezone.utc),
     )
 

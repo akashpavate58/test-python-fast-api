@@ -49,10 +49,11 @@ class IngestionJobStatusResponse(BaseModel):
 
 
 class IngestionQueueMessage(BaseModel):
-    version: int = Field(default=1, ge=1)
+    schema_version: int = Field(default=1, ge=1)
     job_id: str
     submitted_url: HttpUrl
     status_url: HttpUrl
+    correlation_id: str
     created_at: datetime
     payload: Optional[Dict[str, Any]] = None
 

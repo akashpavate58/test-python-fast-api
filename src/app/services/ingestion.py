@@ -6,6 +6,7 @@ from typing import Dict, Protocol
 from app.core.config import get_settings
 from app.db.job_status import SqliteJobStatusRepository
 from app.models.ingestion import IngestionJobRecord, IngestionQueueMessage, IngestionStatus
+from app.services.queue import IngestionQueue, InMemoryIngestionQueue
 
 
 class InvalidJobStatusTransition(ValueError):
@@ -134,23 +135,10 @@ class InMemoryJobRepository:
         )
 
 
-class IngestionQueue(Protocol):
-    def enqueue_message(self, message: IngestionQueueMessage) -> None:
-        ...
-
-
-class InMemoryIngestionQueue:
-    def __init__(self) -> None:
-        self.enqueued_messages: list[IngestionQueueMessage] = []
-
-    def enqueue_message(self, message: IngestionQueueMessage) -> None:
-        self.enqueued_messages.append(message)
-
-
 _default_job_repository = SqliteJobStatusRepository(
     database_url=get_settings().job_status_database_url
 )
-_default_ingestion_queue = InMemoryIngestionQueue()
+_default_ingestion_queue: IngestionQueue | None = None
 
 
 def get_job_repository() -> JobRepository:
@@ -158,6 +146,22 @@ def get_job_repository() -> JobRepository:
 
 
 def get_ingestion_queue() -> IngestionQueue:
+    global _default_ingestion_queue
+
+    if _default_ingestion_queue is not None:
+        return _default_ingestion_queue
+
+    settings = get_settings()
+    if settings.azure_service_bus_connection_string:
+        from app.integrations.service_bus import AzureServiceBusIngestionQueue
+
+        _default_ingestion_queue = AzureServiceBusIngestionQueue(
+            settings.azure_service_bus_connection_string,
+            settings.service_bus_queue_ingestion,
+        )
+    else:
+        _default_ingestion_queue = InMemoryIngestionQueue()
+
     return _default_ingestion_queue
 
 

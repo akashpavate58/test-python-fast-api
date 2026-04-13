@@ -33,6 +33,18 @@ class StubIngestionQueue(IngestionQueue):
     def enqueue_message(self, message: object) -> None:
         self.enqueued_messages.append(message)
 
+    def receive_message(self, timeout_seconds: int = 5):
+        return None
+
+    def complete_message(self, receipt: object) -> None:
+        pass
+
+    def abandon_message(self, receipt: object, reason: str | None = None) -> None:
+        pass
+
+    def dead_letter_message(self, receipt: object, reason: str | None = None) -> None:
+        pass
+
 
 @pytest.mark.asyncio
 async def test_post_ingestion_returns_202_with_location_and_retry_after():

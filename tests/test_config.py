@@ -17,7 +17,9 @@ def teardown_function(function):
         "CHUNK_SIZE_CHARS",
         "CHUNK_OVERLAP_CHARS",
         "WORKER_MAX_CONCURRENT_JOBS",
+        "WORKER_MAX_CONCURRENT_PAGE_FETCHES_PER_JOB",
         "CRAWL_MAX_DEPTH",
+        "CRAWL_MAX_PAGES_PER_JOB",
         "INGESTION_STATUS_POLL_RETRY_AFTER_SECONDS",
     ]:
         os.environ.pop(key, None)

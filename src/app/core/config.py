@@ -23,6 +23,8 @@ class AppSettings(BaseSettings):
     crawl_max_depth: int = 3
     crawl_max_pages_per_job: int = 100
     crawl_request_timeout_seconds: int = 10
+    crawl_request_max_retries: int = 2
+    crawl_request_retry_delay_seconds: int = 1
     crawl_max_redirects: int = 5
     crawl_same_host_only: bool = True
     crawl_allowed_schemes: str | list[str] = ["https", "http"]
@@ -72,6 +74,8 @@ class AppSettings(BaseSettings):
         "crawl_max_depth",
         "crawl_max_pages_per_job",
         "crawl_request_timeout_seconds",
+        "crawl_request_max_retries",
+        "crawl_request_retry_delay_seconds",
         "crawl_max_redirects",
         "job_status_retention_days",
         "worker_shutdown_grace_seconds",
@@ -102,6 +106,8 @@ class AppSettings(BaseSettings):
         "worker_message_retry_limit",
         "ingestion_status_poll_retry_after_seconds",
         "embedding_request_timeout_seconds",
+        "crawl_request_max_retries",
+        "crawl_request_retry_delay_seconds",
         mode="before",
     )
     @classmethod

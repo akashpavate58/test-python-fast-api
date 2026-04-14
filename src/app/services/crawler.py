@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urldefrag, urlparse, urlunparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from app.core.config import AppSettings
-from app.models.ingestion import CrawledPage, DiscoveredLink
+from app.models.ingestion import CrawledPage, DiscoveredLink, ExtractedPageContent
 
 
 class LinkExtractor(HTMLParser):
@@ -34,6 +35,7 @@ class PageFetchResult:
     content_type: Optional[str]
     content_length: Optional[int]
     html: Optional[str]
+    fetched_at: datetime
     error: Optional[str]
 
 
@@ -101,6 +103,115 @@ def _is_html_content_type(content_type: Optional[str]) -> bool:
     return content_type_lower in {"text/html", "application/xhtml+xml"}
 
 
+def _should_retry_fetch_result(result: PageFetchResult) -> bool:
+    if result.html is not None:
+        return False
+    if result.http_status == 0:
+        return True
+    if result.http_status in {408, 429}:
+        return True
+    return 500 <= result.http_status < 600
+
+
+class HTMLTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._ignore_depth = 0
+        self._chunks: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag.lower() in {"script", "style"}:
+            self._ignore_depth += 1
+            return
+        if tag.lower() in {
+            "p",
+            "div",
+            "br",
+            "li",
+            "section",
+            "article",
+            "header",
+            "footer",
+            "nav",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+        }:
+            self._append_whitespace()
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style"}:
+            self._ignore_depth = max(0, self._ignore_depth - 1)
+            return
+        if tag.lower() in {
+            "p",
+            "div",
+            "br",
+            "li",
+            "section",
+            "article",
+            "header",
+            "footer",
+            "nav",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+        }:
+            self._append_whitespace()
+
+    def handle_data(self, data: str) -> None:
+        if self._ignore_depth:
+            return
+        self._chunks.append(data)
+
+    def _append_whitespace(self) -> None:
+        if self._chunks and not self._chunks[-1].endswith(" "):
+            self._chunks.append(" ")
+
+    def get_text(self) -> str:
+        text = "".join(self._chunks)
+        return " ".join(text.split())
+
+
+def extract_text(html: str) -> str:
+    extractor = HTMLTextExtractor()
+    extractor.feed(html)
+    extractor.close()
+    return extractor.get_text()
+
+
+def extract_page_content(
+    submitted_url: str,
+    page_fetch_result: PageFetchResult,
+) -> ExtractedPageContent:
+    html = page_fetch_result.html or ""
+    text = extract_text(html) if html else ""
+    return ExtractedPageContent(
+        submitted_url=submitted_url,
+        page_url=page_fetch_result.page_url,
+        final_url=page_fetch_result.final_url,
+        fetched_at=page_fetch_result.fetched_at,
+        http_status=page_fetch_result.http_status,
+        content_type=page_fetch_result.content_type,
+        content_length=page_fetch_result.content_length,
+        fetch_error=page_fetch_result.error,
+        html=html,
+        text=text,
+        metadata={
+            "final_url": page_fetch_result.final_url,
+            "fetch_error": page_fetch_result.error,
+            "content_type": page_fetch_result.content_type,
+            "content_length": page_fetch_result.content_length,
+        },
+    )
+
+
 def _allowed_schemes(settings: AppSettings) -> list[str]:
     schemes = settings.crawl_allowed_schemes
     if isinstance(schemes, str):
@@ -112,7 +223,7 @@ def _is_same_host(root_url: str, candidate_url: str) -> bool:
     return urlparse(root_url).netloc == urlparse(candidate_url).netloc
 
 
-def fetch_page(
+def _fetch_page_once(
     page_url: str,
     timeout_seconds: int,
     user_agent: str,
@@ -138,6 +249,7 @@ def fetch_page(
                 content_type=content_type,
                 content_length=content_length,
                 html=html,
+                fetched_at=datetime.now(timezone.utc),
                 error=None,
             )
     except HTTPError as exc:
@@ -148,6 +260,7 @@ def fetch_page(
             content_type=getattr(exc, "headers", {}).get("Content-Type") if exc.headers else None,
             content_length=None,
             html=None,
+            fetched_at=datetime.now(timezone.utc),
             error=str(exc),
         )
     except URLError as exc:
@@ -158,8 +271,37 @@ def fetch_page(
             content_type=None,
             content_length=None,
             html=None,
+            fetched_at=datetime.now(timezone.utc),
             error=str(exc.reason) if hasattr(exc, "reason") else str(exc),
         )
+
+
+def fetch_page(
+    page_url: str,
+    timeout_seconds: int,
+    user_agent: str,
+    max_redirects: int,
+    max_retries: int = 0,
+    retry_delay_seconds: int = 0,
+) -> PageFetchResult:
+    last_result: PageFetchResult | None = None
+    for attempt in range(max_retries + 1):
+        result = _fetch_page_once(
+            page_url,
+            timeout_seconds=timeout_seconds,
+            user_agent=user_agent,
+            max_redirects=max_redirects,
+        )
+        if not _should_retry_fetch_result(result) or attempt >= max_retries:
+            return result
+        last_result = result
+        time.sleep(retry_delay_seconds)
+    return last_result or _fetch_page_once(
+        page_url,
+        timeout_seconds=timeout_seconds,
+        user_agent=user_agent,
+        max_redirects=max_redirects,
+    )
 
 
 def crawl(
@@ -177,6 +319,8 @@ def crawl(
             timeout_seconds=settings.crawl_request_timeout_seconds,
             user_agent=settings.crawl_user_agent,
             max_redirects=settings.crawl_max_redirects,
+            max_retries=settings.crawl_request_max_retries,
+            retry_delay_seconds=settings.crawl_request_retry_delay_seconds,
         )
 
     scheduled: list[tuple[str, int]] = [(root_url, 0)]
@@ -195,7 +339,8 @@ def crawl(
             CrawledPage(
                 submitted_url=root_url,
                 page_url=page_url,
-                fetched_at=datetime.now(timezone.utc),
+                final_url=page_fetch_result.final_url,
+                fetched_at=page_fetch_result.fetched_at,
                 http_status=page_fetch_result.http_status,
                 content_type=page_fetch_result.content_type,
                 content_length=page_fetch_result.content_length,

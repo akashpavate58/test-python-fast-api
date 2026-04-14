@@ -82,6 +82,7 @@ class CrawledPage(BaseModel):
     version: int = Field(default=1, ge=1)
     submitted_url: HttpUrl
     page_url: HttpUrl
+    final_url: HttpUrl
     fetched_at: datetime
     http_status: int
     content_type: Optional[str] = None
@@ -100,6 +101,12 @@ class ExtractedPageContent(BaseModel):
     version: int = Field(default=1, ge=1)
     submitted_url: HttpUrl
     page_url: HttpUrl
+    final_url: HttpUrl
+    fetched_at: datetime
+    http_status: int
+    content_type: Optional[str] = None
+    content_length: Optional[int] = None
+    fetch_error: Optional[str] = None
     html: str
     text: str
     metadata: Dict[str, Any] = Field(default_factory=dict)

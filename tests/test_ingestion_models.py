@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.models.ingestion import (
     CrawledPage,
     DiscoveredLink,
+    ExtractedPageContent,
     IngestionAcceptedResponse,
     IngestionJobStatusResponse,
     IngestionRequest,
@@ -88,6 +89,7 @@ def test_internal_models_preserve_submitted_and_page_url_separation():
         version=1,
         submitted_url="https://example.com",
         page_url="https://example.com/docs/page",
+        final_url="https://example.com/docs/page",
         fetched_at=datetime.now(timezone.utc),
         http_status=200,
     )
@@ -112,3 +114,24 @@ def test_internal_models_preserve_submitted_and_page_url_separation():
     assert discovered_link.submitted_url != discovered_link.page_url
     assert str(queue_message.submitted_url) == "https://example.com/"
     assert str(queue_message.status_url) == "https://api.example.com/status/job-789"
+
+
+def test_extracted_page_content_includes_fetch_metadata():
+    extracted = ExtractedPageContent(
+        version=1,
+        submitted_url="https://example.com",
+        page_url="https://example.com/page",
+        final_url="https://example.com/page",
+        fetched_at=datetime.now(timezone.utc),
+        http_status=200,
+        content_type="text/html",
+        content_length=20,
+        fetch_error=None,
+        html="<p>Example</p>",
+        text="Example",
+    )
+
+    assert str(extracted.page_url) == "https://example.com/page"
+    assert str(extracted.final_url) == "https://example.com/page"
+    assert extracted.text == "Example"
+    assert extracted.content_type == "text/html"

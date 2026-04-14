@@ -114,9 +114,13 @@ class ExtractedPageContent(BaseModel):
 
 class TextChunk(BaseModel):
     version: int = Field(default=1, ge=1)
+    job_id: str
     submitted_url: HttpUrl
     page_url: HttpUrl
+    page_blob_reference: BlobReference
     chunk_id: str
+    chunk_index: NonNegativeInt
+    total_chunks: NonNegativeInt
     text: str
     start_index: int
     end_index: int

@@ -6,7 +6,9 @@ import signal
 
 from app.core.config import AppSettings, get_settings
 from app.core.logging import init_logging
-from app.models.ingestion import IngestionQueueMessage, IngestionStatus
+from app.integrations.blob_storage import BlobStorageAdapter, get_blob_storage_adapter
+from app.models.ingestion import ExtractedPageContent, IngestionQueueMessage, IngestionStatus
+from app.services.blob_storage import upload_page_text_blob
 from app.services.ingestion import (
     JobRepository,
     get_ingestion_queue,
@@ -25,10 +27,14 @@ class IngestionWorker:
         queue: IngestionQueue | None = None,
         repository: JobRepository | None = None,
         settings: AppSettings | None = None,
+        blob_storage: BlobStorageAdapter | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.queue = queue or get_ingestion_queue()
         self.repository = repository or get_job_repository()
+        self.blob_storage = blob_storage or get_blob_storage_adapter(
+            self.settings.azure_blob_connection_string
+        )
         self._shutdown_event = asyncio.Event()
         self._job_semaphore = asyncio.Semaphore(self.settings.worker_max_concurrent_jobs)
         self._active_tasks: set[asyncio.Task[None]] = set()
@@ -146,16 +152,33 @@ class IngestionWorker:
         pending_chunk_semaphore: asyncio.Semaphore,
         embedding_semaphore: asyncio.Semaphore,
     ) -> None:
+        extracted_page: ExtractedPageContent | None = None
         async with page_fetch_semaphore:
-            await self._fetch_page(job_id, page_url)
+            extracted_page = await self._fetch_page(job_id, page_url)
             self.repository.increment_job_progress(job_id, pages_discovered=1, pages_fetched=1)
 
         async with pending_chunk_semaphore:
             self.repository.increment_job_progress(job_id, pages_extracted=1, chunks_created=1)
+            if extracted_page is not None:
+                await self._store_page_text(job_id, extracted_page)
             await self._embed_chunk(job_id, page_url, embedding_semaphore)
 
-    async def _fetch_page(self, job_id: str, page_url: str) -> None:
+    async def _fetch_page(self, job_id: str, page_url: str) -> ExtractedPageContent | None:
         await asyncio.sleep(0)
+        return None
+
+    async def _store_page_text(
+        self,
+        job_id: str,
+        extracted_page: ExtractedPageContent,
+    ) -> None:
+        await asyncio.to_thread(
+            upload_page_text_blob,
+            self.blob_storage,
+            self.settings,
+            job_id,
+            extracted_page,
+        )
 
     async def _embed_chunk(
         self,
